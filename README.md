@@ -1,11 +1,8 @@
 # Fullstack-Ersatzteildatenbank
-
-
-# Technologien
-
-## Backend:
+Datenbank zur Verwaltung von Ersatzteilen in einem Unternehmen.
+## Technologien
+### Backend
  - Spring Boot
  - PostgreSQL
-
-## Frontend
+### Frontend
  - React
