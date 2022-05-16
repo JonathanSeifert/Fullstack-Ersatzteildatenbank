@@ -1,12 +1,18 @@
 version: '3.5'
-
 services:
    db:
+      container_name: postgres
       image: postgres:12
       restart: always
+      env_file:
+         - ".env"
       environment:
-         POSTGRES_USER: user
-         POSTGRES_PASSWORD: pwd
-         POSTGRES_DB: etm
+         - POSTGRES_USER
+         - POSTGRES_PASSWORD
+         - POSTGRES_DB=etm
       ports:
-         - 5432:5432
+         - 5433:5432
+      volumes:
+         - ./src/main/resources/db/data:/var/lib/postgresql/data
+
+
