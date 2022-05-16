@@ -4,5 +4,6 @@ Datenbank zur Verwaltung von Ersatzteilen in einem Unternehmen.
 ### Backend
  - Spring Boot
  - PostgreSQL
+ - Flyway
 ### Frontend
  - React
