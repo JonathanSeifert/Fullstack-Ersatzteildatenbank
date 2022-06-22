@@ -14,12 +14,13 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import javax.print.attribute.standard.Media;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -60,15 +61,15 @@ public class LandControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent())
                 .andReturn();
+
         String response = mvc.getResponse().getContentAsString();
         String expected = "Keine Laender gefunden.";
-
         assertEquals(expected, response);
     }
     @Test void getLandByIso_3166_2_isOk() throws Exception {
         Mockito.when(landRepository.findByIso_3166_2(deutschland.getIso_3166_2())).thenReturn(deutschland);
         mockMvc.perform(MockMvcRequestBuilders
-                .get("/api/land/0")
+                .get("/api/land/" + deutschland.getIso_3166_2())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
     }
@@ -84,7 +85,6 @@ public class LandControllerTest {
 
         String response = mvc.getResponse().getContentAsString();
         String expected = "Land mit ISO-3166-2 \"" + iso + "\" existiert nicht.";
-
         assertEquals(expected, response);
     }
     @Test void getLandByIso_3166_2_isBadRequest() throws Exception {
@@ -121,7 +121,7 @@ public class LandControllerTest {
         List<String> badName = new ArrayList<>(Arrays.asList("1asda", "hq!g"));
         List <Land> badLaender = new ArrayList<>();
         for(int i=0; i< badIso.size(); i++) {
-            for  (int j=0; j< badLaender.size(); j++){
+            for  (int j=0; j< badName.size(); j++){
                 badLaender.add(new Land(badIso.get(i), badName.get(j)));
             }
         }
@@ -137,6 +137,126 @@ public class LandControllerTest {
     }
     @Test void updateLandByIso_3166_2_isOk() throws Exception {
         Land land = new Land("CH", "Schweiz");
+        Mockito.when(landRepository.findByIso_3166_2(deutschland.getIso_3166_2())).thenReturn(deutschland);
+        Mockito.when(landRepository.save(land)).thenReturn(land);
 
+        MockHttpServletRequestBuilder mockRequest = MockMvcRequestBuilders.put("/api/land/" + deutschland.getIso_3166_2())
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(this.mapper.writeValueAsString(land));
+        mockMvc.perform(mockRequest)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", notNullValue()))
+                .andExpect(jsonPath("$.name").value("Schweiz"));
+    }
+    @Test void updateLandByIso_3166_2_isNoContent() throws Exception {
+        Land land = new Land("CH", "Schweiz");
+        Mockito.when(landRepository.findByIso_3166_2("AT")).thenReturn(null);
+        Mockito.when(landRepository.save(land)).thenReturn(land);
+        MockHttpServletRequestBuilder mockRequest = MockMvcRequestBuilders.put("/api/land/AT")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(this.mapper.writeValueAsString(land));
+        MvcResult mvc = mockMvc.perform(mockRequest)
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        String response = mvc.getResponse().getContentAsString();
+        String expected = "Land mit ISO 'AT' existiert nicht.";
+        assertEquals(expected, response);
+    }
+    @Test void updateLandByIso_3166_2_isBadRequest_UrlFormat() throws Exception {
+        Land land = new Land("CH", "Schweiz");
+        MockHttpServletRequestBuilder mockRequest = MockMvcRequestBuilders.put("/api/land/12")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(this.mapper.writeValueAsString(land));
+        MvcResult mvcResult = mockMvc.perform(mockRequest)
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        String firstResponse = mvcResult.getResponse().getContentAsString();
+        String expected_falsches_URL_Format = "Falsches ISO-Format in der URL";
+        assertEquals(expected_falsches_URL_Format, firstResponse);
+    }
+    @Test void updateLandByIso_3166_2_isBadRequest_null() throws Exception {
+        Land emptyLand = new Land();
+        Mockito.when(landRepository.findByIso_3166_2(deutschland.getIso_3166_2())).thenReturn(deutschland);
+        Mockito.when(landRepository.save(emptyLand)).thenReturn(emptyLand);
+        MockHttpServletRequestBuilder mockRequest = MockMvcRequestBuilders.put("/api/land/DE")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(this.mapper.writeValueAsString(emptyLand));
+        MvcResult mvcResult = mockMvc.perform(mockRequest)
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        String response = mvcResult.getResponse().getContentAsString();
+        String expected_notNull = "Land-Attribute duerfen nicht 'null' sein.";
+        assertEquals(expected_notNull, response);
+    }
+    @Test void updateLandByIso_3166_2_isBadRequest_AttributeFormat() throws Exception {
+        Land invalidLand = new Land("5g", "21fmn.g23");
+        Mockito.when(landRepository.findByIso_3166_2(deutschland.getIso_3166_2())).thenReturn(deutschland);
+        Mockito.when(landRepository.save(invalidLand)).thenReturn(invalidLand);
+        MockHttpServletRequestBuilder thirdMockRequest = MockMvcRequestBuilders.put("/api/land/" + deutschland.getIso_3166_2())
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(this.mapper.writeValueAsString(invalidLand));
+        MvcResult mvcResult = mockMvc.perform(thirdMockRequest)
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        String result = mvcResult.getResponse().getContentAsString();
+        String expected_falsches_attribut_format = "ISO- oder Name-Format falsch";
+        assertEquals(expected_falsches_attribut_format, result);
+
+    }
+    @Test void deleteLandByIso_3166_2_isNoContent_success() throws Exception {
+        Mockito.when(landRepository.findByIso_3166_2(deutschland.getIso_3166_2())).thenReturn(deutschland);
+        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders
+                        .delete("/api/land/" + deutschland.getIso_3166_2())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        String response = mvcResult.getResponse().getContentAsString();
+        String expected = "Land mit Iso " + deutschland.getIso_3166_2() + " erfolgreich entfernt.";
+        assertEquals(expected, response);
+    }
+    @Test void deleteLandByIso_3166_2_isBadRequest_UrlFormat() throws Exception {
+        Mockito.when(landRepository.findByIso_3166_2(deutschland.getIso_3166_2())).thenReturn(deutschland);
+        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders
+                .delete("/api/land/tl")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        String response = mvcResult.getResponse().getContentAsString();
+        String expected = "Falsches ISO-Format in der URL.";
+        assertEquals(expected, response);
+    }
+    @Test void deleteLandByIso_3166_2_isNoContent_landDoesNotExist() throws Exception {
+        Mockito.when(landRepository.findByIso_3166_2("TL")).thenReturn(null);
+        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders
+                        .delete("/api/land/TL")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        String response = mvcResult.getResponse().getContentAsString();
+        String expected = "Land mit Iso TL existiert nicht.";
+        assertEquals(expected, response);
+    }
+    @Test void deleteAllLaender_isNoContent() throws Exception{
+        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders
+                .delete("/api/land")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        String response = mvcResult.getResponse().getContentAsString();
+        String expected = "Alle Laender entfernt.";
+        assertEquals(expected, response);
     }
 }
